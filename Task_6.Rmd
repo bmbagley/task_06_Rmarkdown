@@ -1,0 +1,78 @@
+---
+title: "Task_06 Brandon Bagley"
+output:
+  html_notebook: default
+  html_document: default
+---
+#Introduction
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook presenting work in conjunction with Engle lab at the University of Tennessee at Knoxville, obtained from the marshes of Southern Lousiana as part of a bacterial community identity study.   The work presented here is focused on the interaction between salinity of the incoming water, and the changes in bacterial communities from the regions of Port Sulphur, Grand Isle, and Terrebonne Bay in southern Louisiana soils.  Salnity has been investigated in other regions as a dominant environmental control, and is hypothesized to control the community composition of the ten most relatively abundant bacterial classes.  The salinity was obtained in the field by probe measurement within thesurrounding  water, and from a regional [CRMS](https://lacoast.gov/crms2) monitoring station.
+
+#Methods
+Samples from the 5 m inland from the vegetation edge at up to 17 sites throughout southern Louisiana salt marshes near the regions of Port Sulphur, Grand Isle, and Terrebonne Bay.  At each location a 10cm diamater core was sectioned into 4 depths, 0-1 cm (*A*), 1-2 cm (*B*), 4-5 cm (*C*), and 9-10 cm (*D*) before storage at -20C and DNA extraction.  Soil samples were extracted, amplified, and sequencing of the 16S rRNA gene were completed using 454 pyrosequenced.  The raw amplicons were processed using MOTHUR, and the sequence identification counts were normalized for each sample to obatin the relative abundance at the **Class** level of phylogenetic classification. 
+Salinity measurements collected in multiple ways.
+
+1. Water Quality Probe On-Site
+2. CRMS Station Hourly Data
+  + Salinity was collected from a single station closest to the sampling site at the time of sediment sampling
+
+The data are summarized in the table below;
+
+```{r echo=FALSE}
+library(plyr)
+library(tidyverse)
+library(knitr)
+library(reshape2)
+load("./data/bact_relabund.RData")
+a <- bacteria[,(1:10)]
+b <- env[,c("Salinity.CRMS.ppt","Salinity.field.ppt","yrsn")]
+a_table <- a[,c(1:5)]%>%
+  summarize_all(funs(mean))
+b_table <- b[,c(1,2)]%>%
+  summarize_all(funs(mean))
+kable(a_table, caption = "Average relabundance of the top 5 most abundant bacterial classes (n=245)")
+
+```
+```{r echo=F}
+kable(b_table,caption = "Mean salinity (ppt) collected from all samples (n=245)")
+```
+
+The salinity throught time is plotted from both sources;
+
+```{r echo=F}
+b1 <- melt(b,id.vars = c("yrsn"))
+b1 <- ddply(b1,.(yrsn,variable),summarize,
+            mean=mean(value))
+ggplot(b1,aes(yrsn,mean,color=variable,group=variable))+
+  geom_point(size=3,shape=16,color="grey50")+
+  geom_line(size=2)+
+  facet_wrap(~variable)+
+  labs(y="Salinity (ppt)",x="")+
+    theme_light()+
+  theme(axis.text.x = element_text(angle=45,hjust = 1),
+        legend.position = "none")
+
+```
+
+
+To determine the correlation between each of the sources, we can use a linear regression to determine the correlation between the most abundant bacterial class, Deltaprotoebacteria and both salinity measurements.
+
+```{r}
+summary(lm(bacteria$Deltaproteobacteria~Salinity.CRMS.ppt+Salinity.field.ppt,data=env))
+```
+```{r echo=F}
+c <- data.frame(deltaproteobacteria=bacteria$Deltaproteobacteria,
+                Salinity.crms = env$Salinity.CRMS.ppt,
+                Salinity.field = env$Salinity.field.ppt)
+c <- melt(c,id.vars="deltaproteobacteria")
+ggplot(c, aes(deltaproteobacteria,value,color=variable,group=variable))+
+  geom_smooth(method="lm",se=F)+
+  geom_point(aes(alpha=.5),show.legend = F)+
+  labs(x="Realtive Abundance (%)",y="Salinity (ppt)",title="Salinity versus the relative abundance of Deltaproteobacteria")+
+  theme_light()+
+  theme(legend.title = element_blank(),
+        legend.position = "bottom")
+
+```
+
+Neither value was correlated to the salinity collected both on site and from the regional CRMS station.  The values are not well correlated based on the p-value >0.05 and the fit statistic r$^{2}$ is very low, 0.01.
+
